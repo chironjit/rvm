@@ -329,7 +329,7 @@ impl Runtime for GoRuntime {
             let mut major_minor_groups: std::collections::BTreeMap<String, Vec<String>> =
                 std::collections::BTreeMap::new();
             for version in &stable_versions {
-                let version_clean = version.strip_prefix('v').unwrap_or(&version);
+                let version_clean = version.strip_prefix('v').unwrap_or(version);
                 let parts: Vec<&str> = version_clean.split('.').collect();
                 if parts.len() >= 2 {
                     let major_minor = format!("{}.{}", parts[0], parts[1]);
@@ -548,14 +548,13 @@ impl Runtime for GoRuntime {
         let mut all_versions = Vec::new();
 
         for element in document.select(&div_selector) {
-            if let Some(id) = element.value().attr("id") {
-                if id.starts_with("go")
+            if let Some(id) = element.value().attr("id")
+                && id.starts_with("go")
                     && id.len() > 2
                     && id.chars().nth(2).is_some_and(|c| c.is_ascii_digit())
                 {
                     all_versions.push(id.to_string());
                 }
-            }
         }
 
         display_step("Categorizing Go releases");

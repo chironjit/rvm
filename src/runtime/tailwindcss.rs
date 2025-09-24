@@ -54,7 +54,7 @@ impl Runtime for TailwindCssRuntime {
 
         // Step 3: Download the standalone executable
         let arch = get_architecture()?;
-        let executable_filename = self.get_executable_filename(&arch)?;
+        let executable_filename = self.get_executable_filename(arch)?;
         let download_url = format!(
             "https://github.com/tailwindlabs/tailwindcss/releases/download/{}/{}",
             resolved_version, executable_filename
@@ -376,7 +376,7 @@ impl Runtime for TailwindCssRuntime {
                 std::collections::BTreeMap::new();
 
             for version in &stable_versions {
-                let version_clean = version.strip_prefix('v').unwrap_or(&version);
+                let version_clean = version.strip_prefix('v').unwrap_or(version);
                 let parts: Vec<&str> = version_clean.split('.').collect();
                 if parts.len() >= 2 {
                     let major_minor = format!("{}.{}", parts[0], parts[1]);
