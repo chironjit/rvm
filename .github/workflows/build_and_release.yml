@@ -1,0 +1,240 @@
+# CI/CD Pipeline for rvm-sh/rvm
+# Triggers on version changes in Cargo.toml and builds for Linux x86 and ARM64
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Cargo.toml'
+  workflow_dispatch: # Allow manual triggers
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Job to detect version changes
+  version-check:
+    runs-on: ubuntu-latest
+    outputs:
+      version-changed: ${{ steps.version-check.outputs.changed }}
+      new-version: ${{ steps.version-check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2  # Need at least 2 commits to compare
+
+      - name: Check if version changed
+        id: version-check
+        run: |
+          # Get current version
+          CURRENT_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Check if this is the initial commit or if Cargo.toml changed
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            # Get previous version
+            PREVIOUS_VERSION=$(git show HEAD~1:Cargo.toml | grep '^version = ' | head -1 | sed 's/version = "\(.*\)"/\1/' || echo "")
+            echo "Previous version: $PREVIOUS_VERSION"
+            
+            if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ] && [ -n "$PREVIOUS_VERSION" ]; then
+              echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "Version unchanged"
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # First commit, treat as version change
+            echo "Initial commit, treating as version change"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+  # Build and test job
+  build-and-test:
+    needs: version-check
+    if: needs.version-check.outputs.version-changed == 'true' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # Linux x86_64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: false
+          # Linux ARM64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest-arm64
+            cross: false
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Run tests
+        run: cargo test --verbose --target ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release
+          cp target/${{ matrix.target }}/release/rvm release/rvm-${{ matrix.target }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: rvm-${{ matrix.target }}
+          path: release/
+          retention-days: 30
+
+  # Create GitHub release
+  create-release:
+    needs: [version-check, build-and-test]
+    if: needs.version-check.outputs.version-changed == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          
+          # Copy binaries with consistent naming
+          cp artifacts/rvm-x86_64-unknown-linux-gnu/rvm release-files/rvm-linux-x64
+          cp artifacts/rvm-aarch64-unknown-linux-gnu/rvm release-files/rvm-linux-aarch64
+          
+          # Create checksums
+          cd release-files
+          for file in rvm-*; do
+            if [[ -f "$file" ]]; then
+              sha256sum "$file" > "$file.sha256"
+            fi
+          done
+          
+          # List all files
+          ls -la
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${{ needs.version-check.outputs.new-version }}"
+          
+          # Extract current version section from CHANGELOG.md
+          awk "/^## \[$VERSION\]/,/^## \[/{if(/^## \[/ && !/^## \[$VERSION\]/) exit; print}" CHANGELOG.md > RELEASE_NOTES.md
+          
+          # Add installation instructions
+          cat >> RELEASE_NOTES.md << 'EOF'
+          
+          ## Installation
+          
+          Download the appropriate binary for your platform, make it executable and add it to path:
+          
+          ```bash
+          # Linux x86_64 (64-bit)
+          wget https://github.com/rvm-sh/rvm/releases/download/v$VERSION/rvm-linux-x64
+          chmod +x rvm-linux-x64
+          mkdir -p $HOME/.rvm/bin
+          mv rvm-linux-x64 $HOME/.rvm/bin/rvm
+          echo 'export PATH="$HOME/.rvm/bin:$PATH"' >> $HOME/.bashrc
+          source $HOME/.bashrc
+          
+          # Linux ARM64
+          wget https://github.com/rvm-sh/rvm/releases/download/v$VERSION/rvm-linux-aarch64
+          chmod +x rvm-linux-aarch64
+          mkdir -p $HOME/.rvm/bin
+          mv rvm-linux-aarch64 $HOME/.rvm/bin/rvm
+          echo 'export PATH="$HOME/.rvm/bin:$PATH"' >> $HOME/.bashrc
+          source $HOME/.bashrc
+          ```
+          
+          **Note:** After installation, you may need to restart your terminal or run `source ~/.bashrc` to use the `rvm` command.
+          
+          ## Verification
+          
+          Verify the download with the provided SHA256 checksums:
+          ```bash
+          # For x86_64
+          sha256sum -c rvm-linux-x64.sha256
+          
+          # For ARM64  
+          sha256sum -c rvm-linux-aarch64.sha256
+          ```
+          EOF
+          
+          # Use the combined file as body
+          mv RELEASE_NOTES.md CHANGELOG.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version-check.outputs.new-version }}
+          name: Release v${{ needs.version-check.outputs.new-version }}
+          body_path: CHANGELOG.md
+          files: release-files/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+  # Optional: Security scan
+  security-audit:
+    needs: version-check
+    if: needs.version-check.outputs.version-changed == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+      
+      - name: Run security audit
+        run: cargo audit
+
+      - name: Run cargo deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          log-level: warn
+          command: check
+          arguments: --all-features
+
+  # Optional: Code quality checks
+  quality-checks:
+    needs: version-check
+    if: needs.version-check.outputs.version-changed == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      
+      - name: Check formatting
+        run: cargo fmt -- --check
+      
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings

@@ -1,10 +1,10 @@
 mod runtime;
 mod utils;
 
+use std::time::Instant;
 use utils::cli::Commands;
 use utils::error::Result;
 use utils::watcher::FileWatcher;
-use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -90,9 +90,10 @@ async fn main() -> Result<()> {
         }
         Commands::List { args } => {
             let args_clone = args.clone();
-            if let Err(e) = tokio::task::spawn_blocking(move || utils::list::handle_list_command(&args_clone))
-                .await
-                .unwrap()
+            if let Err(e) =
+                tokio::task::spawn_blocking(move || utils::list::handle_list_command(&args_clone))
+                    .await
+                    .unwrap()
             {
                 println!("Error with list command: {}", e);
             }

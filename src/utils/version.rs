@@ -98,14 +98,14 @@ pub fn list_installed_versions(runtime_name: &str) -> Result<Vec<String>> {
             let entry = entry?;
             let path = entry.path();
 
-            if path.is_dir() {
-                if let Some(version_name) = path.file_name() {
-                    let version_str = version_name.to_string_lossy().to_string();
-                    // Verify it's a valid installation by checking for expected structure
-                    let bin_dir = path.join("bin");
-                    if bin_dir.exists() {
-                        installed_versions.push(version_str);
-                    }
+            if path.is_dir()
+                && let Some(version_name) = path.file_name()
+            {
+                let version_str = version_name.to_string_lossy().to_string();
+                // Verify it's a valid installation by checking for expected structure
+                let bin_dir = path.join("bin");
+                if bin_dir.exists() {
+                    installed_versions.push(version_str);
                 }
             }
         }
@@ -375,11 +375,11 @@ pub fn group_versions_by_channel(version_infos: Vec<VersionInfo>) -> Vec<String>
         if let Some(major) = extract_major_version(&version_info.version) {
             channel_groups
                 .entry(version_info.channel.clone())
-                .or_insert_with(BTreeMap::new)
+                .or_default()
                 .entry(major)
-                .or_insert_with(BTreeMap::new)
+                .or_default()
                 .entry(version_info.major_minor)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(clean_version_for_display(&version_info.version));
         }
     }

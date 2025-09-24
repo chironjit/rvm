@@ -60,7 +60,10 @@ impl Runtime for TailwindCssRuntime {
             resolved_version, executable_filename
         );
 
-        display_step(&format!("Downloading TailwindCSS {} executable", resolved_version));
+        display_step(&format!(
+            "Downloading TailwindCSS {} executable",
+            resolved_version
+        ));
 
         // Create the runtime directory structure
         let runtime_home = get_runtime_home("tailwindcss")?;
@@ -74,7 +77,8 @@ impl Runtime for TailwindCssRuntime {
         if !response.status().is_success() {
             return Err(RvmError::HttpError(format!(
                 "Failed to download TailwindCSS {}: {}",
-                resolved_version, response.status()
+                resolved_version,
+                response.status()
             )));
         }
 
@@ -91,7 +95,10 @@ impl Runtime for TailwindCssRuntime {
             std::fs::set_permissions(&executable_path, perms)?;
         }
 
-        display_success(&format!("Downloaded TailwindCSS {} executable", resolved_version));
+        display_success(&format!(
+            "Downloaded TailwindCSS {} executable",
+            resolved_version
+        ));
 
         // Step 4: Set as default
         set_default_runtime("tailwindcss", &resolved_version)?;
@@ -99,7 +106,10 @@ impl Runtime for TailwindCssRuntime {
         // Step 5: Automatically reload profile
         reload_profile()?;
 
-        display_success(&format!("TailwindCSS {} installation completed successfully!", resolved_version));
+        display_success(&format!(
+            "TailwindCSS {} installation completed successfully!",
+            resolved_version
+        ));
         Ok(())
     }
 
@@ -136,7 +146,10 @@ impl Runtime for TailwindCssRuntime {
                     return Ok(());
                 }
 
-                display_step(&format!("Found {} TailwindCSS versions to remove", installed_versions.len()));
+                display_step(&format!(
+                    "Found {} TailwindCSS versions to remove",
+                    installed_versions.len()
+                ));
 
                 // Remove each version
                 for version in &installed_versions {
@@ -163,7 +176,10 @@ impl Runtime for TailwindCssRuntime {
                 // Reload profile to apply changes
                 reload_profile()?;
 
-                display_success(&format!("Removed all {} TailwindCSS versions successfully", installed_versions.len()));
+                display_success(&format!(
+                    "Removed all {} TailwindCSS versions successfully",
+                    installed_versions.len()
+                ));
             }
         }
         Ok(())
@@ -174,11 +190,17 @@ impl Runtime for TailwindCssRuntime {
 
         // Get the latest version from the API
         let latest_version = self.resolve_version("latest")?;
-        display_success(&format!("Latest TailwindCSS version is: {}", latest_version));
+        display_success(&format!(
+            "Latest TailwindCSS version is: {}",
+            latest_version
+        ));
 
         // Check if it's already installed
         if is_version_installed("tailwindcss", &latest_version)? {
-            display_success(&format!("TailwindCSS {} is already installed", latest_version));
+            display_success(&format!(
+                "TailwindCSS {} is already installed",
+                latest_version
+            ));
 
             // Set it as default if it's not already
             display_step("Ensuring latest version is set as default");
@@ -193,16 +215,25 @@ impl Runtime for TailwindCssRuntime {
         display_step(&format!("Installing TailwindCSS {}", latest_version));
         self.add(Some("latest"))?;
 
-        display_success(&format!("Successfully updated TailwindCSS to {}", latest_version));
+        display_success(&format!(
+            "Successfully updated TailwindCSS to {}",
+            latest_version
+        ));
         Ok(())
     }
 
     fn prune(&self, keep_version: &str) -> Result<()> {
-        display_step(&format!("Pruning TailwindCSS versions (keeping {})", keep_version));
+        display_step(&format!(
+            "Pruning TailwindCSS versions (keeping {})",
+            keep_version
+        ));
 
         // Resolve the version to keep
         let resolved_keep_version = resolve_installed_version("tailwindcss", keep_version)?;
-        display_success(&format!("Will keep TailwindCSS version: {}", resolved_keep_version));
+        display_success(&format!(
+            "Will keep TailwindCSS version: {}",
+            resolved_keep_version
+        ));
 
         // Get list of all installed versions
         let installed_versions = list_installed_versions("tailwindcss")?;
@@ -219,11 +250,17 @@ impl Runtime for TailwindCssRuntime {
             .collect();
 
         if versions_to_remove.is_empty() {
-            display_success(&format!("Only {} is installed, nothing to prune", resolved_keep_version));
+            display_success(&format!(
+                "Only {} is installed, nothing to prune",
+                resolved_keep_version
+            ));
             return Ok(());
         }
 
-        display_step(&format!("Found {} TailwindCSS versions to remove", versions_to_remove.len()));
+        display_step(&format!(
+            "Found {} TailwindCSS versions to remove",
+            versions_to_remove.len()
+        ));
 
         // Remove each version except the one to keep
         for version in &versions_to_remove {
@@ -243,7 +280,11 @@ impl Runtime for TailwindCssRuntime {
         // Reload profile to apply changes
         reload_profile()?;
 
-        display_success(&format!("Pruned {} TailwindCSS versions, kept {}", versions_to_remove.len(), resolved_keep_version));
+        display_success(&format!(
+            "Pruned {} TailwindCSS versions, kept {}",
+            versions_to_remove.len(),
+            resolved_keep_version
+        ));
         Ok(())
     }
 
@@ -252,7 +293,10 @@ impl Runtime for TailwindCssRuntime {
 
         // Resolve version first
         let resolved_version = resolve_installed_version("tailwindcss", version)?;
-        display_success(&format!("Resolved to installed version: {}", resolved_version));
+        display_success(&format!(
+            "Resolved to installed version: {}",
+            resolved_version
+        ));
 
         // Set as default
         set_default_runtime("tailwindcss", &resolved_version)?;
@@ -264,22 +308,34 @@ impl Runtime for TailwindCssRuntime {
         display_step("Applying changes to current session");
         apply_version_to_current_session("tailwindcss", &resolved_version, "tailwindcss")?;
 
-        display_success(&format!("TailwindCSS {} is now the default version", resolved_version));
+        display_success(&format!(
+            "TailwindCSS {} is now the default version",
+            resolved_version
+        ));
         Ok(())
     }
 
     fn use_version(&self, version: &str) -> Result<()> {
-        display_step(&format!("Switching to TailwindCSS {} for current session", version));
+        display_step(&format!(
+            "Switching to TailwindCSS {} for current session",
+            version
+        ));
 
         // Resolve version first
         let resolved_version = resolve_installed_version("tailwindcss", version)?;
-        display_success(&format!("Resolved to installed version: {}", resolved_version));
+        display_success(&format!(
+            "Resolved to installed version: {}",
+            resolved_version
+        ));
 
         // Apply version to current session
         display_step("Applying changes to current session");
         apply_version_to_current_session("tailwindcss", &resolved_version, "tailwindcss")?;
 
-        display_success(&format!("TailwindCSS {} is now active in current session", resolved_version));
+        display_success(&format!(
+            "TailwindCSS {} is now active in current session",
+            resolved_version
+        ));
         println!("This change is temporary. To make it permanent, run:");
         println!("   rvm set tailwindcss {}", version);
         Ok(())
@@ -326,17 +382,18 @@ impl Runtime for TailwindCssRuntime {
                     let major_minor = format!("{}.{}", parts[0], parts[1]);
                     major_minor_groups
                         .entry(major_minor)
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(version.clone());
                 }
             }
 
             // Sort and display top groups
-            let mut sorted_groups: Vec<(String, Vec<String>)> = major_minor_groups.into_iter().collect();
+            let mut sorted_groups: Vec<(String, Vec<String>)> =
+                major_minor_groups.into_iter().collect();
             sorted_groups.sort_by(|a, b| {
                 let parse_major_minor = |s: &str| -> (u32, u32) {
                     let parts: Vec<&str> = s.split('.').collect();
-                    let major = parts.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
+                    let major = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
                     let minor = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
                     (major, minor)
                 };
@@ -376,7 +433,8 @@ impl Runtime for TailwindCssRuntime {
             result.push("=== Pre-release Versions ===".to_string());
 
             // Show only the latest few pre-releases
-            let limited_prereleases: Vec<String> = prerelease_versions.into_iter().take(5).collect();
+            let limited_prereleases: Vec<String> =
+                prerelease_versions.into_iter().take(5).collect();
             for version in limited_prereleases {
                 result.push(format!("{} (Pre-release)", version));
             }
