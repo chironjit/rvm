@@ -127,17 +127,13 @@ impl Runtime for GoRuntime {
 
                 // Clean up the entire go directory if it's empty
                 let runtime_home = get_runtime_home("go")?;
-                if runtime_home.exists() {
-                    match std::fs::read_dir(&runtime_home) {
-                        Ok(mut entries) => {
-                            if entries.next().is_none() {
-                                display_step("Cleaning up empty Go directory");
-                                std::fs::remove_dir(&runtime_home)?;
-                                display_success("Removed empty Go directory");
-                            }
-                        }
-                        Err(_) => {} // Directory doesn't exist or can't read, skip cleanup
-                    }
+                if runtime_home.exists()
+                    && let Ok(mut entries) = std::fs::read_dir(&runtime_home)
+                    && entries.next().is_none()
+                {
+                    display_step("Cleaning up empty Go directory");
+                    std::fs::remove_dir(&runtime_home)?;
+                    display_success("Removed empty Go directory");
                 }
 
                 // Reload profile to apply changes
@@ -309,8 +305,8 @@ impl Runtime for GoRuntime {
         for release in releases {
             let version = &release.version;
             // Convert go1.24.5 to v1.24.5 for display
-            let display_version = if version.starts_with("go") {
-                format!("v{}", &version[2..])
+            let display_version = if let Some(stripped) = version.strip_prefix("go") {
+                format!("v{}", stripped)
             } else {
                 version.clone()
             };
@@ -357,8 +353,8 @@ impl Runtime for GoRuntime {
             });
 
             // Display top 4 major.minor groups
-            let mut count = 0;
-            for (major_minor, mut versions) in sorted_groups {
+            // for (major_minor, mut versions) in sorted_groups {
+            for (count, (major_minor, mut versions)) in sorted_groups.into_iter().enumerate() {
                 if count >= 4 {
                     break;
                 }
@@ -374,7 +370,6 @@ impl Runtime for GoRuntime {
 
                 let versions_str = versions.join(", ");
                 result.push(format!("{}: {}", major_minor, versions_str));
-                count += 1;
             }
 
             // Add truncation message for stable versions
@@ -550,11 +545,11 @@ impl Runtime for GoRuntime {
         for element in document.select(&div_selector) {
             if let Some(id) = element.value().attr("id")
                 && id.starts_with("go")
-                    && id.len() > 2
-                    && id.chars().nth(2).is_some_and(|c| c.is_ascii_digit())
-                {
-                    all_versions.push(id.to_string());
-                }
+                && id.len() > 2
+                && id.chars().nth(2).is_some_and(|c| c.is_ascii_digit())
+            {
+                all_versions.push(id.to_string());
+            }
         }
 
         display_step("Categorizing Go releases");

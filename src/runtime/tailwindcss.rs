@@ -160,17 +160,13 @@ impl Runtime for TailwindCssRuntime {
 
                 // Clean up the entire tailwindcss directory if it's empty
                 let runtime_home = get_runtime_home("tailwindcss")?;
-                if runtime_home.exists() {
-                    match std::fs::read_dir(&runtime_home) {
-                        Ok(mut entries) => {
-                            if entries.next().is_none() {
-                                display_step("Cleaning up empty TailwindCSS directory");
-                                std::fs::remove_dir(&runtime_home)?;
-                                display_success("Removed empty TailwindCSS directory");
-                            }
-                        }
-                        Err(_) => {} // Directory doesn't exist or can't read, skip cleanup
-                    }
+                if runtime_home.exists()
+                    && let Ok(mut entries) = std::fs::read_dir(&runtime_home)
+                    && entries.next().is_none()
+                {
+                    display_step("Cleaning up empty Tailwind directory");
+                    std::fs::remove_dir(&runtime_home)?;
+                    display_success("Removed empty Tailwind directory");
                 }
 
                 // Reload profile to apply changes
@@ -403,8 +399,7 @@ impl Runtime for TailwindCssRuntime {
             });
 
             // Display top 4 major.minor groups
-            let mut count = 0;
-            for (major_minor, mut versions) in sorted_groups {
+            for (count, (major_minor, mut versions)) in sorted_groups.into_iter().enumerate() {
                 if count >= 4 {
                     break;
                 }
@@ -421,7 +416,6 @@ impl Runtime for TailwindCssRuntime {
 
                 let versions_str = versions.join(", ");
                 result.push(format!("{}: {}", major_minor, versions_str));
-                count += 1;
             }
 
             result.push("... displaying top 4 versions, all other versions truncated".to_string());

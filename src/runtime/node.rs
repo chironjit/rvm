@@ -114,17 +114,13 @@ impl Runtime for NodeRuntime {
 
                 // Clean up the entire node directory if it's empty
                 let runtime_home = get_runtime_home("node")?;
-                if runtime_home.exists() {
-                    match std::fs::read_dir(&runtime_home) {
-                        Ok(mut entries) => {
-                            if entries.next().is_none() {
-                                display_step("Cleaning up empty Node.js directory");
-                                std::fs::remove_dir(&runtime_home)?;
-                                display_success("Removed empty Node.js directory");
-                            }
-                        }
-                        Err(_) => {} // Directory doesn't exist or can't read, skip cleanup
-                    }
+                if runtime_home.exists()
+                    && let Ok(mut entries) = std::fs::read_dir(&runtime_home)
+                    && entries.next().is_none()
+                {
+                    display_step("Cleaning up empty Node directory");
+                    std::fs::remove_dir(&runtime_home)?;
+                    display_success("Removed empty Node directory");
                 }
 
                 // Reload profile to apply changes
